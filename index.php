@@ -1,7 +1,59 @@
 <?php
-include 'functions.php';
+session_start();
+
+// Verifica si la lista de tareas está inicializada en la sesión
+if (!isset($_SESSION['tasks'])) {
+    $_SESSION['tasks'] = [];
+}
+
+function getTasks() {
+    return $_SESSION['tasks'];
+}
+
+function addTask($title, $description, $category, $due_date) {
+    $task = [
+        'id' => time(), // Usamos el tiempo actual como ID único
+        'title' => $title,
+        'description' => $description,
+        'category' => $category,
+        'due_date' => $due_date,
+        'completed' => false
+    ];
+    $_SESSION['tasks'][] = $task;
+}
+
+function updateTask($id, $title, $description, $category, $due_date, $completed) {
+    foreach ($_SESSION['tasks'] as &$task) {
+        if ($task['id'] == $id) {
+            $task['title'] = $title;
+            $task['description'] = $description;
+            $task['category'] = $category;
+            $task['due_date'] = $due_date;
+            $task['completed'] = $completed;
+            break;
+        }
+    }
+}
+
+function deleteTask($id) {
+    $_SESSION['tasks'] = array_filter($_SESSION['tasks'], function($task) use ($id) {
+        return $task['id'] != $id;
+    });
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        if ($_POST['action'] === 'add') {
+            addTask($_POST['title'], $_POST['description'], $_POST['category'], $_POST['due_date']);
+        } elseif ($_POST['action'] === 'update') {
+            updateTask($_POST['id'], $_POST['title'], $_POST['description'], $_POST['category'], $_POST['due_date'], isset($_POST['completed']) ? true : false);
+        } elseif ($_POST['action'] === 'delete') {
+            deleteTask($_POST['id']);
+        }
+    }
+}
+
 $tasks = getTasks();
-?>
 
 <!DOCTYPE html>
 <html lang="es">
@@ -13,7 +65,7 @@ $tasks = getTasks();
     <h1>Gestión de Tareas</h1>
 
     <h2>Agregar Tarea</h2>
-    <form method="POST" action="process.php">
+    <form method="POST">
         <input type="hidden" name="action" value="add">
         <input type="text" name="title" placeholder="Título" required>
         <textarea name="description" placeholder="Descripción"></textarea>
@@ -40,8 +92,7 @@ $tasks = getTasks();
             <td><?= htmlspecialchars($task['due_date']) ?></td>
             <td><?= $task['completed'] ? 'Sí' : 'No' ?></td>
             <td>
-                <!-- Formulario para actualizar tarea -->
-                <form method="POST" action="process.php" style="display:inline;">
+                <form method="POST" style="display:inline;">
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="id" value="<?= $task['id'] ?>">
                     <input type="text" name="title" value="<?= htmlspecialchars($task['title']) ?>" required>
@@ -51,9 +102,7 @@ $tasks = getTasks();
                     <input type="checkbox" name="completed" <?= $task['completed'] ? 'checked' : '' ?>> Completada
                     <button type="submit">Actualizar</button>
                 </form>
-
-                <!-- Formulario para eliminar tarea -->
-                <form method="POST" action="process.php" style="display:inline;">
+                <form method="POST" style="display:inline;">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="<?= $task['id'] ?>">
                     <button type="submit">Eliminar</button>
@@ -64,3 +113,11 @@ $tasks = getTasks();
     </table>
 </body>
 </html>
+
+?>
+
+<?php if (strtotime($task['due_date']) < strtotime('+2 days') && !$task['completed']): ?>
+    <script>
+        alert('La tarea "<?= $task['title'] ?>" está próxima a vencer.');
+    </script>
+<?php endif; ?>
